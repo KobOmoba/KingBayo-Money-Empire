@@ -1,6 +1,6 @@
 
-import { GoogleGenAI, Type, Schema } from "@google/genai";
-import { AppMode, GeneratorConfig, Ticket } from "../types";
+import { GoogleGenAI } from "@google/genai";
+import { AppMode, GeneratorConfig, Ticket } from "./types"; // **FIXED LINE**
 
 const SYSTEM_INSTRUCTION = `
 You are the "KingBayo Warlord", a Cold-Blooded Sports Analyst AI owned by AariNAT Company Limited.
@@ -54,33 +54,33 @@ TONE & PERSONA:
 `;
 
 // Match Schema
-const matchSchema: Schema = {
-  type: Type.OBJECT,
+const matchSchema: any = { // Using 'any' instead of Schema from the import
+  type: "object",
   properties: {
-    sport: { type: Type.STRING, description: "The specific sport e.g., 'Table Tennis', 'Football'" },
-    homeTeam: { type: Type.STRING },
-    awayTeam: { type: Type.STRING },
-    league: { type: Type.STRING, description: "Specific league or tournament" },
-    time: { type: Type.STRING, description: "e.g., '15:00' or 'LIVE 34\''" },
-    market: { type: Type.STRING, description: "e.g., 'Over 2.5 Goals', 'Match Winner'" },
-    selection: { type: Type.STRING, description: "The specific outcome predicted" },
-    odds: { type: Type.NUMBER, description: "Decimal odds for this leg (e.g., 1.35)" },
-    confidence: { type: Type.NUMBER, description: "Percentage integer 0-100" },
-    reasoning: { type: Type.STRING, description: "Brief, aggressive analytical justification based on the Pillars" },
-    isLive: { type: Type.BOOLEAN },
+    sport: { type: "string", description: "The specific sport e.g., 'Table Tennis', 'Football'" },
+    homeTeam: { type: "string" },
+    awayTeam: { type: "string" },
+    league: { type: "string", description: "Specific league or tournament" },
+    time: { type: "string", description: "e.g., '15:00' or 'LIVE 34\''" },
+    market: { type: "string", description: "e.g., 'Over 2.5 Goals', 'Match Winner'" },
+    selection: { type: "string", description: "The specific outcome predicted" },
+    odds: { type: "number", description: "Decimal odds for this leg (e.g., 1.35)" },
+    confidence: { type: "number", description: "Percentage integer 0-100" },
+    reasoning: { type: "string", description: "Brief, aggressive analytical justification based on the Pillars" },
+    isLive: { type: "boolean" },
   },
   required: ["sport", "homeTeam", "awayTeam", "league", "time", "market", "selection", "odds", "confidence", "reasoning", "isLive"],
 };
 
 // Single Ticket Schema
-const ticketSchema: Schema = {
-  type: Type.OBJECT,
+const ticketSchema: any = { // Using 'any' instead of Schema from the import
+  type: "object",
   properties: {
-    strategyName: { type: Type.STRING, description: "The name of the strategy" },
-    totalOdds: { type: Type.NUMBER, description: "Combined odds of all matches" },
-    mathematicalEdge: { type: Type.NUMBER, description: "Overall win probability 0-100" },
+    strategyName: { type: "string", description: "The name of the strategy" },
+    totalOdds: { type: "number", description: "Combined odds of all matches" },
+    mathematicalEdge: { type: "number", description: "Overall win probability 0-100" },
     matches: {
-      type: Type.ARRAY,
+      type: "array",
       items: matchSchema,
     },
   },
@@ -88,11 +88,11 @@ const ticketSchema: Schema = {
 };
 
 // Response Schema (Array of Tickets)
-const responseSchema: Schema = {
-  type: Type.OBJECT,
+const responseSchema: any = { // Using 'any' instead of Schema from the import
+  type: "object",
   properties: {
     tickets: {
-      type: Type.ARRAY,
+      type: "array",
       items: ticketSchema,
       description: "A list of exactly 3 distinct tickets generated from the scan."
     }
@@ -102,6 +102,8 @@ const responseSchema: Schema = {
 
 export const generateTicket = async (config: GeneratorConfig): Promise<Ticket[]> => {
   // Production initialization using environment variable
+  // NOTE: The user's original code had some issues with the GenAI library import structure
+  // The corrected library structure is used here, assuming it's correctly installed.
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const modelName = 'gemini-2.5-flash';
