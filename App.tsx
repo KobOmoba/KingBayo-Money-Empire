@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
-import Header from './components/Header';
-import Controls from './components/Controls';
-import TicketDisplay from './components/TicketDisplay';
-import HistoryPanel from './components/HistoryPanel';
-import SourceList from './components/SourceList';
+import Header from './Header'; // CORRECTED
+import Controls from './Controls'; // CORRECTED
+import TicketDisplay from './TicketDisplay'; // CORRECTED
+import HistoryPanel from './HistoryPanel'; // CORRECTED
+import SourceList from './SourceList'; // CORRECTED
 import { generateTicket } from './services/geminiService';
 import { Ticket, GeneratorConfig, AppMode } from './types';
 
