@@ -1,194 +1,198 @@
 
-import React from 'react';
-import { GeneratorConfig, AppMode } from './types'; // FIXED: Changed to ./types
+import React, { useState, useEffect } from 'react';
+import Header from './Header'; // FIXED: Removed ./components/
+import Controls from './Controls'; // FIXED: Removed ./components/
+import TicketDisplay from './TicketDisplay'; // FIXED: Removed ./components/
+import HistoryPanel from './HistoryPanel'; // FIXED: Removed ./components/
+import SourceList from './SourceList'; // FIXED: Removed ./components/
+import { generateTicket } from './geminiService'; // FIXED: Removed ./services/
+import { Ticket, GeneratorConfig, AppMode } from './types';
 
-interface ControlsProps {
-  config: GeneratorConfig;
-  setConfig: React.Dispatch<React.SetStateAction<GeneratorConfig>>;
-  onGenerate: () => void;
-  loading: boolean;
-}
+const App: React.FC = () => {
+  const [config, setConfig] = useState<GeneratorConfig>({
+    mode: AppMode.ACCUMULATOR_24H,
+    matchCount: 3, // Default for matches to spot
+    currentCapital: 1000, // Default rollover start
+    selectedMarkets: []
+  });
 
-const Controls: React.FC<ControlsProps> = ({ config, setConfig, onGenerate, loading }) => {
-  const handleModeChange = (mode: AppMode) => {
-    setConfig(prev => ({ ...prev, mode }));
+  const [loading, setLoading] = useState<boolean>(false);
+  const [currentTickets, setCurrentTickets] = useState<Ticket[]>([]);
+  const [activeTicketIndex, setActiveTicketIndex] = useState<number>(0);
+  const [history, setHistory] = useState<Ticket[]>([]);
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(true);
+
+  // Initialize Theme
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('kingbayo_theme');
+    if (savedTheme) {
+      setIsDarkMode(savedTheme === 'dark');
+    } else {
+      setIsDarkMode(true); // Default to dark
+    }
+  }, []);
+
+  // Apply Theme
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('kingbayo_theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('kingbayo_theme', 'light');
+    }
+  }, [isDarkMode]);
+
+  const toggleTheme = () => {
+    setIsDarkMode(!isDarkMode);
   };
 
-  const isSelected = (mode: AppMode) => config.mode === mode;
-
-  const getMarketClass = (market: string) => {
-    return config.selectedMarkets.includes(market)
-      ? 'bg-emerald-500 text-white shadow-md'
-      : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700';
-  };
-
-  const handleMarketToggle = (market: string) => {
-    setConfig(prev => {
-      const isSelected = prev.selectedMarkets.includes(market);
-      let newMarkets;
-      if (isSelected) {
-        // Remove market
-        newMarkets = prev.selectedMarkets.filter(m => m !== market);
-      } else {
-        // Add market, ensuring max 4
-        if (prev.selectedMarkets.length < 4) {
-          newMarkets = [...prev.selectedMarkets, market];
-        } else {
-          newMarkets = [...prev.selectedMarkets.slice(1), market]; // FIFO replacement if max reached
-        }
+  // Load History on Mount
+  useEffect(() => {
+    const saved = localStorage.getItem('kingbayo_history');
+    if (saved) {
+      try {
+        setHistory(JSON.parse(saved));
+      } catch (e) {
+        console.error("Corruption in history archives.", e);
       }
+    }
+  }, []);
 
-      return { ...prev, selectedMarkets: newMarkets };
-    });
+  // Save History on Update
+  useEffect(() => {
+    localStorage.setItem('kingbayo_history', JSON.stringify(history));
+  }, [history]);
+
+  const handleGenerate = async () => {
+    setLoading(true);
+    try {
+      // Service now returns an array of 3 tickets
+      const tickets = await generateTicket(config);
+      setCurrentTickets(tickets);
+      setActiveTicketIndex(0); // Reset to first option
+      setHistory(prev => [...tickets, ...prev]); // Save all 3 to history
+    } catch (error: any) {
+      console.error(error);
+      if (error.message && (error.message.includes("403") || error.message.includes("key"))) {
+         alert("WARLORD ALERT: Security Token Expired. Please refresh the application.");
+      } else {
+         alert("WARLORD ALERT: Protocol Execution Failed.\n\n1. Check your Neural Link (Internet Connection).\n2. Market Volatility may be too high. Retry.");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const availableMarkets = [
-    "EUROPA",
-    "AFRICA",
-    "ASIA",
-    "AMERICAS"
-  ];
+  const loadFromHistory = (ticket: Ticket) => {
+    // When loading from history, we treat it as a single view
+    setCurrentTickets([ticket]);
+    setActiveTicketIndex(0);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   return (
-    <div className="bg-white dark:bg-slate-850 p-6 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 transition-colors duration-300 mb-8">
-      <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white mb-6 flex items-center">
-        <svg className="w-6 h-6 text-emerald-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19V6l12-3v14M9 19c0 1.105-1.79 2-4 2s-4-.895-4-2 1.79-2 4-2 4 .895 4 2zm12-3c0 1.105-1.79 2-4 2s-4-.895-4-2 1.79-2 4-2 4 .895 4 2zM9 6c0 1.105-1.79 2-4 2S1 7.105 1 6s1.79-2 4-2 4 .895 4 2z"></path></svg>
-        Warlord Protocol Settings
-      </h2>
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors duration-300 pb-12 font-sans selection:bg-emerald-500/30 selection:text-emerald-800 dark:selection:text-emerald-200">
+      <Header isDarkMode={isDarkMode} toggleTheme={toggleTheme} />
 
-      <div className="space-y-6">
-        {/* Protocol Mode Selector */}
-        <div>
-          <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-            1. Select Market Focus
-          </label>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <button
-              onClick={() => handleModeChange(AppMode.ACCUMULATOR_24H)}
-              className={`p-3 rounded-lg text-sm font-medium transition-all duration-200 ${
-                isSelected(AppMode.ACCUMULATOR_24H)
-                  ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/30'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-              }`}
-            >
-              Accumulator 24H
-              <span className="block text-xs opacity-70 mt-0.5 font-normal">Low Risk, Daily</span>
-            </button>
-            <button
-              onClick={() => handleModeChange(AppMode.ROLLOVER_7D)}
-              className={`p-3 rounded-lg text-sm font-medium transition-all duration-200 ${
-                isSelected(AppMode.ROLLOVER_7D)
-                  ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/30'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-              }`}
-            >
-              Rollover 7D
-              <span className="block text-xs opacity-70 mt-0.5 font-normal">Medium Risk, Weekly</span>
-            </button>
-            <button
-              onClick={() => handleModeChange(AppMode.SPECULATIVE_DAY)}
-              className={`p-3 rounded-lg text-sm font-medium transition-all duration-200 ${
-                isSelected(AppMode.SPECULATIVE_DAY)
-                  ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/30'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-              }`}
-            >
-              Speculative Day
-              <span className="block text-xs opacity-70 mt-0.5 font-normal">High Risk, Intra-day</span>
-            </button>
-            <button
-              onClick={() => handleModeChange(AppMode.MATCHES_TO_SPOT)}
-              className={`p-3 rounded-lg text-sm font-medium transition-all duration-200 ${
-                isSelected(AppMode.MATCHES_TO_SPOT)
-                  ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/30'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-              }`}
-            >
-              Matches to Spot
-              <span className="block text-xs opacity-70 mt-0.5 font-normal">Custom Count</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Matches to Spot Slider */}
-        {config.mode === AppMode.MATCHES_TO_SPOT && (
-          <div className="pt-2">
-            <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-              Number of Matches: {config.matchCount}
-            </label>
-            <input
-              type="range"
-              min="2"
-              max="6"
-              value={config.matchCount}
-              onChange={(e) => setConfig(prev => ({ ...prev, matchCount: parseInt(e.target.value) }))}
-              className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer dark:bg-slate-700"
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+        
+        {/* Top Control Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          
+          <div className="lg:col-span-3">
+            <Controls 
+              config={config} 
+              setConfig={setConfig} 
+              onGenerate={handleGenerate}
+              loading={loading}
             />
-          </div>
-        )}
 
-        {/* Capital Input */}
-        <div>
-          <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-            2. Initial Capital (e.g., $1000)
-          </label>
-          <input
-            type="number"
-            value={config.currentCapital}
-            onChange={(e) => setConfig(prev => ({ ...prev, currentCapital: parseInt(e.target.value) || 0 }))}
-            className="w-full px-4 py-3 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-emerald-500 focus:border-emerald-500"
-            placeholder="Enter starting capital"
-            min="100"
-          />
+            {currentTickets.length > 0 ? (
+               <div className="animate-fade-in">
+                 {/* Multi-Result Selector Tabs */}
+                 {currentTickets.length > 1 && (
+                   <div className="flex space-x-2 mb-4 overflow-x-auto pb-2 scrollbar-hide">
+                      {currentTickets.map((ticket, idx) => {
+                        const sName = ticket.strategyName.toLowerCase();
+                        
+                        // Updated Badge Detection Logic for new Strategy Names
+                        const isSafe = sName.includes('iron bank') || sName.includes('safe') || sName.includes('option a') || sName.includes('secure');
+                        const isBalanced = sName.includes('bookie basher') || sName.includes('balanced') || sName.includes('option b') || sName.includes('harvest');
+                        const isAggressive = sName.includes('assassin') || sName.includes('high') || sName.includes('option c') || sName.includes('yield');
+                        
+                        let badge = "Option " + (idx + 1);
+                        if (isSafe) badge = "THE IRON BANK";
+                        if (isBalanced) badge = "THE BOOKIE BASHER";
+                        if (isAggressive) badge = "THE ASSASSIN";
+
+                        return (
+                        <button
+                          key={ticket.id}
+                          onClick={() => setActiveTicketIndex(idx)}
+                          className={`flex-1 min-w-[140px] p-3 rounded-lg border transition-all duration-200 text-left relative overflow-hidden group ${
+                            activeTicketIndex === idx
+                              ? 'bg-emerald-500/10 border-emerald-500 text-emerald-700 dark:text-white shadow-[0_0_10px_rgba(16,185,129,0.2)]'
+                              : 'bg-white dark:bg-slate-850 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600'
+                          }`}
+                        >
+                          <div className="flex justify-between items-center mb-1">
+                             <span className={`text-[10px] uppercase font-mono tracking-widest ${activeTicketIndex === idx ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'}`}>
+                               {badge}
+                             </span>
+                             {activeTicketIndex === idx && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_5px_#10b981]"></div>}
+                          </div>
+                          <div className="font-bold text-sm truncate text-slate-800 dark:text-slate-100">
+                             {ticket.strategyName}
+                          </div>
+                          <div className="text-xs font-mono text-slate-500 dark:text-slate-400 mt-1">Odds: <span className="text-slate-900 dark:text-white font-bold">{ticket.totalOdds.toFixed(2)}</span></div>
+                        </button>
+                      )})}
+                   </div>
+                 )}
+
+                 <SourceList ticket={currentTickets[activeTicketIndex]} />
+                 <TicketDisplay ticket={currentTickets[activeTicketIndex]} />
+               </div>
+            ) : (
+               <div className="border border-dashed border-slate-300 dark:border-slate-700 rounded-xl p-12 text-center bg-white/50 dark:bg-slate-900/50 transition-colors duration-300">
+                  <div className="text-slate-400 dark:text-slate-500 text-sm font-mono uppercase tracking-widest">
+                     Waiting for Analysis Parameters...
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-600 mt-2">
+                     Initiate the Warlord Protocol to generate Iron Bank, Bookie Basher, and Assassin strike plans.
+                  </p>
+               </div>
+            )}
+          </div>
+
+          <div className="lg:col-span-1">
+             <div className="sticky top-24">
+                <HistoryPanel history={history} onLoadTicket={loadFromHistory} />
+             </div>
+          </div>
+
         </div>
 
-        {/* Market Selection */}
-        <div>
-          <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-            3. Target Market Segments (Max 4)
-          </label>
-          <div className="flex flex-wrap gap-2">
-            {availableMarkets.map(market => (
-              <button
-                key={market}
-                onClick={() => handleMarketToggle(market)}
-                disabled={!config.selectedMarkets.includes(market) && config.selectedMarkets.length >= 4}
-                className={`px-4 py-2 rounded-full text-xs font-bold transition-all duration-150 ${getMarketClass(market)}`}
-              >
-                {market}
-              </button>
-            ))}
-          </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-            Current Targets: {config.selectedMarkets.join(', ') || 'None selected'}
-          </p>
-        </div>
+      </main>
 
-        {/* Generate Button */}
-        <button
-          onClick={onGenerate}
-          disabled={loading || config.selectedMarkets.length === 0}
-          className={`w-full py-4 mt-6 rounded-xl text-lg font-extrabold transition-all duration-300 shadow-xl ${
-            loading || config.selectedMarkets.length === 0
-              ? 'bg-slate-400 dark:bg-slate-600 text-slate-200 dark:text-slate-400 cursor-not-allowed'
-              : 'bg-emerald-600 text-white hover:bg-emerald-700 focus:outline-none focus:ring-4 focus:ring-emerald-500/50'
-          }`}
-        >
-          {loading ? (
-            <span className="flex items-center justify-center">
-              <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              Executing Protocol...
-            </span>
-          ) : (
-            'Initiate Warlord Protocol'
-          )}
-        </button>
-      </div>
+      <footer className="mt-20 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 py-8 transition-colors duration-300">
+        <div className="max-w-7xl mx-auto px-4 text-center">
+           <p className="text-xs text-slate-400 dark:text-slate-500 mb-2 uppercase tracking-widest">
+              Responsible Gambling Disclaimer
+           </p>
+           <p className="text-[10px] text-slate-500 dark:text-slate-600 max-w-2xl mx-auto mb-4">
+              This application is for simulation and analytical purposes only. KingBayo Money Empire does not encourage gambling. 
+              Odds are generated by AI based on statistical probability and may not reflect real-time bookmaker lines. 
+              Always gamble responsibly. When the fun stops, stop.
+           </p>
+           <p className="text-sm font-bold text-slate-400 dark:text-slate-400 font-mono">
+              © {new Date().getFullYear()} AariNAT Company Limited
+           </p>
+        </div>
+      </footer>
     </div>
   );
 };
 
-export default Controls;
+export default App;
