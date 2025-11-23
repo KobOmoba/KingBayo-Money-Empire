@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { AppMode, GeneratorConfig } from '../types';
+import { AppMode, GeneratorConfig } from './types'; // **FIXED LINE**
 import { Activity, Target, Zap, Settings, Globe, TrendingUp, Coins, BarChart3, Grid } from 'lucide-react';
 
 interface ControlsProps {
