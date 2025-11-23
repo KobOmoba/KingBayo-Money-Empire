@@ -1,11 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
-import Header from './Header'; // CORRECTED
-import Controls from './Controls'; // CORRECTED
-import TicketDisplay from './TicketDisplay'; // CORRECTED
-import HistoryPanel from './HistoryPanel'; // CORRECTED
-import SourceList from './SourceList'; // CORRECTED
-import { generateTicket } from './services/geminiService';
+import Header from './Header'; // FIXED: Removed ./components/
+import Controls from './Controls'; // FIXED: Removed ./components/
+import TicketDisplay from './TicketDisplay'; // FIXED: Removed ./components/
+import HistoryPanel from './HistoryPanel'; // FIXED: Removed ./components/
+import SourceList from './SourceList'; // FIXED: Removed ./components/
+import { generateTicket } from './geminiService'; // FIXED: Removed ./services/
 import { Ticket, GeneratorConfig, AppMode } from './types';
 
 const App: React.FC = () => {
