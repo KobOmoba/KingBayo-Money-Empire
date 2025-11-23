@@ -1,60 +1,50 @@
 
 import React from 'react';
-import { Ticket } from '../types';
-import { Globe, Radio, Signal, Database } from 'lucide-react';
+import { Ticket } from './types'; // Corrected path
+import { List, Link, Zap } from 'lucide-react';
 
 interface SourceListProps {
   ticket: Ticket;
 }
 
 const SourceList: React.FC<SourceListProps> = ({ ticket }) => {
-  // Extract unique leagues and sports from the ticket
-  const leagues = Array.from(new Set(ticket.matches.map(m => m.league)));
-  const sports = Array.from(new Set(ticket.matches.map(m => m.sport)));
+  if (!ticket.sourceLinks || ticket.sourceLinks.length === 0) {
+    return (
+      <div className="mt-6 p-4 bg-yellow-500/10 rounded-lg border border-yellow-500/30">
+        <p className="text-sm font-semibold text-yellow-700 dark:text-yellow-400 flex items-center">
+          <Zap className="w-4 h-4 mr-2" /> Source data links not provided for this ticket.
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <div className="bg-white dark:bg-slate-850 rounded-xl border border-slate-200 dark:border-slate-700 p-4 shadow-xl mb-6 transition-colors duration-300">
-      <div className="flex items-center space-x-2 mb-3 border-b border-slate-200 dark:border-slate-800 pb-2">
-         <Radio className="w-4 h-4 text-amber-500 animate-pulse" />
-         <h3 className="text-xs font-bold font-mono text-slate-500 dark:text-slate-400 uppercase tracking-widest">
-           Intelligence Sources / Signals
-         </h3>
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-         <div>
-            <p className="text-[10px] text-slate-400 uppercase mb-1 flex items-center">
-              <Database className="w-3 h-3 mr-1" /> Target Leagues Scanned
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-               {leagues.map((league, idx) => (
-                 <span key={idx} className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded text-[10px] border border-slate-200 dark:border-slate-700 font-mono">
-                    {league}
-                 </span>
-               ))}
-            </div>
-         </div>
-         
-         <div>
-            <p className="text-[10px] text-slate-400 uppercase mb-1 flex items-center">
-               <Signal className="w-3 h-3 mr-1" /> Active Sports
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-               {sports.map((sport, idx) => (
-                 <span key={idx} className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded text-[10px] border border-emerald-500/20 font-bold font-mono">
-                    {sport}
-                 </span>
-               ))}
-            </div>
-         </div>
-      </div>
-      
-      <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center text-[10px] text-slate-400 font-mono">
-         <span>Algorithm: GEMINI-2.5-FLASH</span>
-         <span className="flex items-center">
-            <Globe className="w-3 h-3 mr-1" /> Global Latency: 42ms
-         </span>
-      </div>
+    <div className="mt-6 bg-white dark:bg-slate-850 p-6 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 transition-colors duration-300">
+      <h4 className="text-lg font-extrabold text-slate-900 dark:text-white mb-3 flex items-center">
+        <List className="w-5 h-5 mr-2 text-slate-500" />
+        Protocol Source Links
+      </h4>
+      <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+        These links direct you to the external data sources used for the AI analysis.
+      </p>
+
+      <ul className="space-y-2">
+        {ticket.sourceLinks.map((link, index) => (
+          <li key={index}>
+            <a
+              href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center p-3 rounded-lg bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors duration-200 border border-slate-200 dark:border-slate-700 group"
+            >
+              <Link className="w-4 h-4 mr-3 text-emerald-500 flex-shrink-0" />
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 truncate">
+                {link.name || link.url}
+              </span>
+            </a>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 };
