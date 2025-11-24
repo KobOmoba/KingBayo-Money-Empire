@@ -1,182 +1,177 @@
+// components/Controls.tsx
 
 import React from 'react';
-import { AppMode, GeneratorConfig } from './types'; // **FIXED LINE**
-import { Activity, Target, Zap, Settings, Globe, TrendingUp, Coins, BarChart3, Grid } from 'lucide-react';
+import { AppMode, RiskLevel, ControlsState } from '../types';
+import { SlidersHorizontal, Zap, Anchor, Sword } from 'lucide-react';
 
 interface ControlsProps {
-  config: GeneratorConfig;
-  setConfig: React.Dispatch<React.SetStateAction<GeneratorConfig>>;
-  onGenerate: () => void;
-  loading: boolean;
+    controls: ControlsState;
+    setControls: (update: Partial<ControlsState>) => void;
+    onGenerate: () => void;
+    isGenerating: boolean;
 }
 
-const Controls: React.FC<ControlsProps> = ({ config, setConfig, onGenerate, loading }) => {
-  
-  const handleModeChange = (mode: AppMode) => {
-    setConfig(prev => ({ ...prev, mode }));
-  };
+const Controls: React.FC<ControlsProps> = ({ controls, setControls, onGenerate, isGenerating }) => {
+    const { mode, riskLevel, matchesToSpot, betBuilderMarkets } = controls;
 
-  const handleCapitalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = parseFloat(e.target.value);
-    setConfig(prev => ({ ...prev, currentCapital: isNaN(val) ? 0 : val }));
-  };
+    const ModeButton: React.FC<{ modeValue: AppMode, Icon: React.ElementType, label: string }> = ({ modeValue, Icon, label }) => {
+        const isActive = mode === modeValue;
+        return (
+            <button
+                className={`flex items-center justify-center space-x-2 p-3 rounded-xl transition-all duration-300 
+                    ${isActive 
+                        ? 'bg-neon-emerald/80 text-slate-950 font-extrabold shadow-lg shadow-neon-emerald/30' 
+                        : 'bg-slate-700/50 text-slate-300 hover:bg-slate-600/70 border border-slate-700'
+                    }`}
+                onClick={() => setControls({ mode: modeValue })}
+            >
+                <Icon className="h-5 w-5" />
+                <span className="text-sm">{label}</span>
+            </button>
+        );
+    };
 
-  const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = parseInt(e.target.value);
-    setConfig(prev => ({ ...prev, matchCount: val }));
-  };
+    const RiskButton: React.FC<{ riskValue: RiskLevel, Icon: React.ElementType, label: string }> = ({ riskValue, Icon, label }) => {
+        const isActive = riskLevel === riskValue;
+        const colorClass = 
+            riskValue === RiskLevel.IronBank ? 'text-blue-400' : 
+            riskValue === RiskLevel.BookieBasher ? 'text-neon-amber' : 
+            'text-neon-red';
 
-  const toggleMarket = (market: string) => {
-    const current = config.selectedMarkets || [];
-    const updated = current.includes(market) 
-      ? current.filter(m => m !== market)
-      : [...current, market];
-    setConfig(prev => ({ ...prev, selectedMarkets: updated }));
-  };
-
-  const availableMarkets = ["Over 2.5 Goals", "Both Teams To Score", "Match Winner", "Corners Over", "Cards Over", "Double Chance"];
-
-  return (
-    <div className="bg-white dark:bg-slate-850 rounded-xl border border-slate-200 dark:border-slate-700 p-6 shadow-xl mb-8 relative overflow-hidden transition-colors duration-300">
-      {/* Decorative cyber elements */}
-      <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-      
-      <div className="flex items-center mb-6 space-x-2">
-        <Settings className="w-5 h-5 text-emerald-500 dark:text-emerald-400" />
-        <h2 className="text-sm font-mono uppercase tracking-widest text-slate-500 dark:text-slate-300">Configuration Matrix</h2>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        
-        {/* Mode Selection */}
-        <div className="space-y-2">
-          <label className="text-xs font-mono text-slate-500 dark:text-slate-400 uppercase">Operation Mode</label>
-          <div className="flex flex-col space-y-2">
-            {Object.values(AppMode).map((mode) => (
-              <button
-                key={mode}
-                onClick={() => handleModeChange(mode)}
-                className={`flex items-center px-4 py-3 rounded-lg border text-sm font-medium transition-all duration-200 ${
-                  config.mode === mode
-                    ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-600 dark:text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.15)]'
-                    : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600'
-                }`}
-              >
-                {mode === AppMode.LIVE_SCANNER ? <Activity className="w-4 h-4 mr-2" /> :
-                 mode === AppMode.BET_BUILDER ? <Target className="w-4 h-4 mr-2" /> :
-                 mode === AppMode.ROLLOVER ? <TrendingUp className="w-4 h-4 mr-2" /> :
-                 <Zap className="w-4 h-4 mr-2" />}
-                {mode}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Inputs */}
-        <div className="col-span-1 md:col-span-2 space-y-4 flex flex-col justify-between">
-            <div className="grid grid-cols-1 gap-4">
-                
-                {/* Global Scope Display */}
-                {config.mode === AppMode.ACCUMULATOR_24H && (
-                  <div className="space-y-2">
-                      <label className="text-xs font-mono text-slate-500 dark:text-slate-400 uppercase">Target Scope</label>
-                      <div className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 rounded-lg px-4 py-3 flex items-center space-x-3 cursor-not-allowed transition-colors duration-300">
-                          <Globe className="w-4 h-4 text-emerald-500" />
-                          <span className="text-sm font-mono">GLOBAL OMNI-SCAN ACTIVE</span>
-                      </div>
-                  </div>
+        return (
+            <button
+                className={`flex flex-col items-center justify-center p-3 rounded-lg transition-all duration-300 w-full
+                    ${isActive 
+                        ? `bg-slate-700 border-2 ${riskValue === RiskLevel.IronBank ? 'border-blue-400' : riskValue === RiskLevel.BookieBasher ? 'border-neon-amber' : 'border-neon-red'} shadow-xl`
+                        : 'bg-slate-800/50 border border-slate-700 hover:bg-slate-700/70'
+                    }`}
+                onClick={() => setControls({ riskLevel: riskValue })}
+                disabled={mode === AppMode.Accumulator}
+            >
+                <Icon className={`h-5 w-5 ${colorClass}`} />
+                <span className={`text-xs mt-1 ${isActive ? 'font-bold' : 'text-slate-400'}`}>
+                    {label}
+                </span>
+                {mode === AppMode.Accumulator && (
+                     <span className="text-xs text-neon-emerald/80 font-semibold mt-1">ALL</span>
                 )}
+            </button>
+        );
+    };
 
-                {/* Live Scanner Slider */}
-                {config.mode === AppMode.LIVE_SCANNER && (
-                  <div className="space-y-4 animate-fade-in">
-                      <label className="text-xs font-mono text-slate-500 dark:text-slate-400 uppercase flex justify-between">
-                         <span>Matches to Spot</span>
-                         <span className="text-emerald-500 font-bold">{config.matchCount || 3}</span>
-                      </label>
-                      <input 
-                        type="range" 
-                        min="1" 
-                        max="10" 
-                        value={config.matchCount || 3}
-                        onChange={handleSliderChange}
-                        className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-                      />
-                      <p className="text-[10px] text-slate-400">Higher count requires wider bandwidth scan.</p>
-                  </div>
-                )}
+    const marketOptions = ["Over 2.5 Goals", "Both Teams To Score", "Over 7.5 Corners", "First Half Result", "Team Cards Over 2.5"];
 
-                {/* Bet Builder Market Grid */}
-                {config.mode === AppMode.BET_BUILDER && (
-                  <div className="space-y-2 animate-fade-in">
-                    <label className="text-xs font-mono text-slate-500 dark:text-slate-400 uppercase flex items-center">
-                       <Grid className="w-3 h-3 mr-1" /> Focus Markets
-                    </label>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                       {availableMarkets.map(m => (
-                         <button
-                           key={m}
-                           onClick={() => toggleMarket(m)}
-                           className={`text-[10px] uppercase font-bold py-2 px-3 rounded border transition-colors ${
-                             (config.selectedMarkets || []).includes(m)
-                               ? 'bg-emerald-500 text-white border-emerald-600'
-                               : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'
-                           }`}
-                         >
-                           {m}
-                         </button>
-                       ))}
-                    </div>
-                  </div>
-                )}
+    const toggleBetBuilderMarket = (market: string) => {
+        setControls({
+            betBuilderMarkets: betBuilderMarkets.includes(market)
+                ? betBuilderMarkets.filter(m => m !== market)
+                : [...betBuilderMarkets, market]
+        });
+    };
 
-                {/* Capital Input - Only for Rollover */}
-                {config.mode === AppMode.ROLLOVER && (
-                   <div className="space-y-2 animate-fade-in">
-                      <label className="text-xs font-mono text-emerald-600 dark:text-emerald-400 uppercase flex items-center">
-                        <Coins className="w-3 h-3 mr-1" /> Current Capital (Naira)
-                      </label>
-                      <input 
-                        type="number"
-                        value={config.currentCapital}
-                        onChange={handleCapitalChange}
-                        className="w-full bg-slate-50 dark:bg-slate-900 border border-emerald-500/30 text-slate-900 dark:text-white rounded-lg px-4 py-3 font-mono font-bold focus:outline-none focus:border-emerald-500 transition-colors"
-                        placeholder="1000"
-                      />
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                         Strategy: <strong className="text-emerald-600 dark:text-emerald-400">50/50 Harvest.</strong> Win → Bank 50% of Profit → Reinvest Rest.
-                      </p>
-                   </div>
+    return (
+        <div className="bg-slate-950/70 p-6 rounded-xl shadow-2xl border border-slate-800 space-y-6">
+            <h2 className="text-2xl font-extrabold uppercase text-slate-100 border-b border-slate-700 pb-3 flex items-center space-x-2">
+                <SlidersHorizontal className="h-6 w-6 text-neon-emerald" />
+                <span>Ruthless Analysis Protocol</span>
+            </h2>
+
+            {/* --- Mode Selection --- */}
+            <div>
+                <p className="text-sm uppercase font-semibold text-slate-400 mb-2">Operation Mode</p>
+                <div className="grid grid-cols-3 gap-3">
+                    <ModeButton modeValue={AppMode.Accumulator} Icon={Anchor} label="24h Accumulator" />
+                    <ModeButton modeValue={AppMode.LiveScanner} Icon={Zap} label="Live Scanner" />
+                    <ModeButton modeValue={AppMode.BetBuilder} Icon={Sword} label="Bet Builder" />
+                </div>
+            </div>
+
+            {/* --- Risk Level Selection --- */}
+            <div>
+                <p className="text-sm uppercase font-semibold text-slate-400 mb-2">Strategy Protocol (Focus Target)</p>
+                <div className="grid grid-cols-3 gap-3">
+                    <RiskButton riskValue={RiskLevel.IronBank} Icon={Anchor} label="Iron Bank (Safe)" />
+                    <RiskButton riskValue={RiskLevel.BookieBasher} Icon={Sword} label="Bookie Basher (Value)" />
+                    <RiskButton riskValue={RiskLevel.HighYieldAssassin} Icon={Zap} label="High Yield (Risk)" />
+                </div>
+                {mode === AppMode.Accumulator && (
+                    <p className="text-xs text-neon-emerald/80 mt-2 text-center">
+                        <span className="font-bold">24h Accumulator</span> runs all 3 protocols for maximum coverage.
+                    </p>
                 )}
             </div>
 
-             <button
+            {/* --- Mode-Specific Controls --- */}
+            <div className="space-y-4">
+                {mode === AppMode.LiveScanner && (
+                    <div className="p-3 bg-slate-800 rounded-lg">
+                        <label htmlFor="matchesToSpot" className="block text-sm font-medium text-slate-300">
+                            Live Scanner: Max Active Matches to Spot: <span className="font-bold text-neon-amber">{matchesToSpot}</span>
+                        </label>
+                        <input
+                            id="matchesToSpot"
+                            type="range"
+                            min="5"
+                            max="50"
+                            step="5"
+                            value={matchesToSpot}
+                            onChange={(e) => setControls({ matchesToSpot: Number(e.target.value) })}
+                            className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer range-lg focus:outline-none focus:ring-2 focus:ring-neon-amber/50"
+                            style={{ accentColor: '#f59e0b' }} // Set thumb color
+                        />
+                    </div>
+                )}
+                {mode === AppMode.BetBuilder && (
+                    <div className="p-3 bg-slate-800 rounded-lg">
+                        <p className="block text-sm font-medium text-slate-300 mb-2">
+                            Bet Builder: Select Correlated Markets
+                        </p>
+                        <div className="grid grid-cols-2 gap-2">
+                            {marketOptions.map(market => (
+                                <button
+                                    key={market}
+                                    onClick={() => toggleBetBuilderMarket(market)}
+                                    className={`p-2 text-xs rounded-lg transition-colors duration-200 border 
+                                        ${betBuilderMarkets.includes(market)
+                                            ? 'bg-neon-emerald/80 text-slate-950 font-bold border-neon-emerald'
+                                            : 'bg-slate-900 text-slate-400 hover:bg-slate-700/50 border-slate-700'
+                                        }`}
+                                >
+                                    {market}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* --- Execute Button --- */}
+            <button
                 onClick={onGenerate}
-                disabled={loading}
-                className={`w-full mt-4 py-4 rounded-lg font-bold uppercase tracking-wider text-sm transition-all duration-300 relative overflow-hidden group ${
-                    loading 
-                    ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed border border-slate-200 dark:border-slate-700' 
-                    : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20 border border-emerald-500'
-                }`}
+                disabled={isGenerating}
+                className={`w-full py-4 rounded-xl text-lg font-extrabold uppercase transition-all duration-300 flex justify-center items-center space-x-2
+                    ${isGenerating 
+                        ? 'bg-slate-600/50 text-slate-400 cursor-not-allowed' 
+                        : 'bg-neon-emerald text-slate-950 shadow-neon-emerald/50 shadow-xl hover:bg-neon-emerald/90 active:scale-[0.99]'
+                    }`}
             >
-                {loading ? (
-                    <span className="flex items-center justify-center">
-                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-emerald-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Executing Warlord Protocol...
-                    </span>
+                {isGenerating ? (
+                    <>
+                        <Zap className="h-5 w-5 animate-spin" />
+                        <span>WARLORD PROTOCOL ACTIVE...</span>
+                    </>
                 ) : (
-                    <span className="flex items-center justify-center">
-                         Initiate {config.mode === AppMode.ROLLOVER ? 'Rollover Step' : 'Global Analysis'} <BarChart3 className="ml-2 w-4 h-4" />
-                    </span>
+                    <>
+                        <Zap className="h-6 w-6" />
+                        <span>EXECUTE RUTHLESS ANALYSIS</span>
+                    </>
                 )}
             </button>
+            <p className="text-xs text-slate-500 italic text-center">
+                Total Accumulation Odds must be between 5.0 and 10.0.
+            </p>
         </div>
-      </div>
-    </div>
-  );
+    );
 };
 
 export default Controls;
