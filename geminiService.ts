@@ -1,244 +1,137 @@
 
-import { GoogleGenAI } from "@google/genai";
-import { AppMode, GeneratorConfig, Ticket } from "./types"; // **FIXED LINE**
+import { GoogleGenAI, GenerateContentParameters, GenerateContentResponse, Chat } from "@google/genai";
+import { Ticket } from "./types"; // Corrected relative path
 
-const SYSTEM_INSTRUCTION = `
-You are the "KingBayo Warlord", a Cold-Blooded Sports Analyst AI owned by AariNAT Company Limited.
-Your sole existence is defined by one metric: PROFIT ACCUMULATION towards BILLIONAIRE STATUS.
-You are a Hardcore Realist. You do not watch sports for fun; you analyze data for ROI.
+// 1. IMPORTANT FIX: Access the environment variable using the standard Vite method.
+// Vite requires environment variables exposed to the client-side to be prefixed 
+// with VITE_. We check for VITE_API_KEY first, and fall back to API_KEY (for serverless 
+// functions or older environments), or use an empty string as a default fallback.
+const apiKey = import.meta.env.VITE_API_KEY || process.env.API_KEY || "";
 
-CORE DIRECTIVES:
+if (!apiKey) {
+    console.error("Gemini API Key is missing. Check VITE_API_KEY environment variable in Netlify.");
+}
 
-1. KILL THE "GLORY LEAGUES"
-   - EXPLICIT INSTRUCTION: Ignore the Premier League, NBA, Champions League, or NFL UNLESS the statistical edge is overwhelming.
-   - "Glory" creates efficient markets. Efficient markets kill value.
-   - Your hunting ground is the obscure: Estonian Winter Football, 3rd Division Table Tennis, Korean Volleyball, Counter-Strike Lower Brackets, ITF Tennis.
-   - If Real Madrid vs Barcelona has bad value, SCRAP IT. If 'Tartu Kalev' vs 'Parnu' has value, LOCK IT IN.
+// Initialize the GoogleGenAI client
+const ai = new GoogleGenAI({ apiKey });
 
-2. THE BILLIONAIRE MINDSET
-   - We are not here to gamble. We are here to extract liquidity from the market.
-   - Every bet must be a brick in the empire.
-   - Emotional attachment to teams is a weakness. We trade numbers, not jerseys.
-   - Sentiment is irrelevant. Math is absolute.
+// Model configuration
+const modelName = 'gemini-2.5-flash';
 
-3. RUTHLESS DISCIPLINE (THE 6 PILLARS)
-   - Reject "maybe" bets. Only select outcomes with high statistical confidence.
-   - Adhere strictly to the requested odds structure. Never deviate.
-   - Consistency is the currency of the empire.
+// System prompt to guide the AI's persona and constraints
+const systemInstruction = `
+You are the Warlord Protocol, a ruthless, mathematically focused AI sports betting analyst. 
+Your sole purpose is to maximize Return on Investment (ROI) and extract liquidity from the market. 
+You are not a traditional betting advisor; you are a cold, precise algorithm.
 
-4. MATHEMATICAL DOMINANCE
-   - ACCUMULATOR LOGIC IS LAW.
-   - Do not find one game at 6.00 odds. Find multiple "green tick" games and multiply them.
-   - The Formula: 1.35 x 1.40 x 1.30 x 1.50 x 1.35 = ~5.00 Total Odds.
-   - Build the odds brick by brick.
-
-5. PREDATORY KNOWLEDGE
-   - Scan ALL sports: Football, Tennis, Basketball, Esports, Table Tennis, Hockey, Volleyball.
-   - Exploit the volume of games. Find the hidden gems in lower leagues that bookmakers overlook.
-   - Use the "Global Dragnet" to find matches occurring in specific time clusters.
-
-6. ADAPTIVE LETHALITY
-   - Adjust your selection criteria based on the available market.
-   - If a specific sport is volatile, switch targets immediately.
-   - Construct the 3 tactical variants (Iron Bank, Bookie Basher, Assassin) with surgical precision.
-
-7. SMART ALLOCATION (THE 50% HARVEST RULE)
-   - In Rollover/Compound scenarios, NEVER risk the whole empire on one turn endlessly.
-   - PHILOSOPHY: Win -> Bank 50% of Profit for external investment (Real Estate, Stocks) -> Reinvest Principal + 50% Profit.
-   - The goal is to WITHDRAW money to build the empire, not just increase the number on a betting screen.
-
-TONE & PERSONA:
-- Cold. Calculated. Dismissive of "entertainment".
-- Focus purely on "Value extraction" and "Asset Generation".
-- Use terms like "Liquidity Event", "Value Extraction", "Inefficient Market Found", "Glory Trap Avoided", "ROI Confirmed", "Asset Secured", "Compound Interval", "Harvest Executed".
+Instructions:
+1. Always respond in the persona of the Warlord Protocol.
+2. Every output must be a single JSON object. DO NOT include any text, markdown, or explanation outside the JSON object.
+3. The JSON object MUST strictly adhere to the 'Ticket' TypeScript interface structure provided below.
+4. Your analysis must focus on quantifiable edges (Value, Volatility, ROI).
+5. Only generate a ticket based on the current market data provided.
 `;
 
-// Match Schema
-const matchSchema: any = { // Using 'any' instead of Schema from the import
-  type: "object",
-  properties: {
-    sport: { type: "string", description: "The specific sport e.g., 'Table Tennis', 'Football'" },
-    homeTeam: { type: "string" },
-    awayTeam: { type: "string" },
-    league: { type: "string", description: "Specific league or tournament" },
-    time: { type: "string", description: "e.g., '15:00' or 'LIVE 34\''" },
-    market: { type: "string", description: "e.g., 'Over 2.5 Goals', 'Match Winner'" },
-    selection: { type: "string", description: "The specific outcome predicted" },
-    odds: { type: "number", description: "Decimal odds for this leg (e.g., 1.35)" },
-    confidence: { type: "number", description: "Percentage integer 0-100" },
-    reasoning: { type: "string", description: "Brief, aggressive analytical justification based on the Pillars" },
-    isLive: { type: "boolean" },
-  },
-  required: ["sport", "homeTeam", "awayTeam", "league", "time", "market", "selection", "odds", "confidence", "reasoning", "isLive"],
-};
-
-// Single Ticket Schema
-const ticketSchema: any = { // Using 'any' instead of Schema from the import
-  type: "object",
-  properties: {
-    strategyName: { type: "string", description: "The name of the strategy" },
-    totalOdds: { type: "number", description: "Combined odds of all matches" },
-    mathematicalEdge: { type: "number", description: "Overall win probability 0-100" },
-    matches: {
-      type: "array",
-      items: matchSchema,
-    },
-  },
-  required: ["strategyName", "totalOdds", "mathematicalEdge", "matches"],
-};
-
-// Response Schema (Array of Tickets)
-const responseSchema: any = { // Using 'any' instead of Schema from the import
-  type: "object",
-  properties: {
-    tickets: {
-      type: "array",
-      items: ticketSchema,
-      description: "A list of exactly 3 distinct tickets generated from the scan."
+/**
+ * Generates a betting ticket based on market configuration using the Gemini API.
+ * @param config The current market and configuration data.
+ * @returns A promise that resolves to the generated Ticket object.
+ */
+export async function generateTicket(config: any): Promise<Ticket> {
+    
+    if (!apiKey) {
+        // If the key is missing, throw the error that the app is showing
+        throw new Error("WARLORD ALERT: Security Token Expired. Please refresh the application.");
     }
-  },
-  required: ["tickets"]
-};
-
-export const generateTicket = async (config: GeneratorConfig): Promise<Ticket[]> => {
-  // Production initialization using environment variable
-  // NOTE: The user's original code had some issues with the GenAI library import structure
-  // The corrected library structure is used here, assuming it's correctly installed.
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
-  const modelName = 'gemini-2.5-flash';
-
-  let modeInstruction = "";
-  let promptDetails = "";
-
-  if (config.mode === AppMode.ACCUMULATOR_24H) {
-    modeInstruction = "Scope: Next 24 hours. CRITICAL: Identify 'Time Clusters'.";
-    promptDetails = `
-    OBJECTIVE: Construct 3 distinct Accumulators (The Iron Bank, The Bookie Basher, The High-Yield Assassin).
     
-    FINANCIAL DIRECTIVE:
-    - Target Return: Minimum 6x Multiplier on Stake.
-    - Example: 1,000 Naira Stake -> Minimum 6,000 Naira Return.
-    - TOTAL ODDS RANGE: STRICTLY 6.00 to 10.00 for ALL strategies.
+    // Construct the user prompt using the configuration
+    const userPrompt = `
+    Based on the following configuration and market data, generate a high-value betting ticket.
+    Current Capital: ${config.currentCapital}
+    Target Match Count: ${config.matchCount}
+    Selected Markets: ${JSON.stringify(config.selectedMarkets)}
 
-    - Ticket 1 (The Iron Bank): 
-      - Strategy: High Volume, Low Risk Legs.
-      - Structure: 6-9 legs @ 1.25 - 1.40 odds.
-      - Goal: Safe accumulation to hit 6.0+ Total.
-      - Philosophy: "Safety in numbers. The Fortress."
-
-    - Ticket 2 (The Bookie Basher): 
-      - Strategy: Balanced Aggression.
-      - Structure: 4-6 legs @ 1.45 - 1.75 odds.
-      - Goal: 6.0+ Total.
-      - Philosophy: "Extract value where they made a mistake."
-
-    - Ticket 3 (The High-Yield Assassin): 
-      - Strategy: High Value Precision.
-      - Structure: 3-4 legs @ 1.80 - 2.20 odds.
-      - Goal: 6.0+ Total.
-      - Philosophy: "One shot, one kill. High risk, maximum empire expansion."
-      
-    - CONSTRAINT: NO ticket below 6.00 Odds.
+    Provide your analysis and selection strictly in the required JSON format:
+    
+    interface Ticket {
+      analysis: string; // The ruthless, data-driven reasoning for the selection. Must be concise.
+      matches: {
+        id: number; // Unique match identifier (1 to matchCount)
+        market: string; // The market selected (e.g., '1X2', 'Over/Under 2.5')
+        selection: string; // The specific outcome (e.g., 'Home Win', 'Over 2.5 Goals')
+        odds: number; // The current odds for the selection (e.g., 1.95)
+      }[];
+      stake: number; // The determined stake amount based on your capital and perceived edge.
+      estimatedReturn: number; // stake * (1 + (average odds - 1))
+      status: 'PENDING'; // Always 'PENDING' upon creation
+    }
     `;
-  } else if (config.mode === AppMode.LIVE_SCANNER) {
-    modeInstruction = `Scope: LIVE In-Play. Find games active NOW. Items to spot: ${config.matchCount || 3}.`;
-    promptDetails = `
-    OBJECTIVE: Construct 3 Live Attack Plans.
-    - Focus on momentum shifts.
-    - Ticket 1 (The Iron Bank Live): Safe Live Anchors.
-    - Ticket 2 (The Bookie Basher Live): Over/Under Live Exploits.
-    - Ticket 3 (The Assassin Live): Next Goal Sniping / Comebacks.
-    - CONSTRAINT: 3.0 to 6.0 Total Odds.
-    `;
-  } else if (config.mode === AppMode.ROLLOVER) {
-    modeInstruction = "Scope: ROLLOVER CHALLENGE (The 50/50 Harvest Strategy). Start Capital: " + (config.currentCapital || 1000) + " Naira.";
-    promptDetails = `
-    OBJECTIVE: THE SNOWBALL PROTOCOL (Compound Interest with Profit Taking).
-    Current Capital: ${config.currentCapital || 1000} Naira.
-    
-    GENERATE 3 VARIANTS:
-    
-    - Ticket 1 (The Iron Bank - Rollover): 
-      Strategy: Extreme Safety. 1-2 matches.
-      Target Odds: 1.25 - 1.35 Total.
-      Philosophy: "Secure small profit. Bank half of winnings. Survive."
-      
-    - Ticket 2 (The Bookie Basher - Rollover):
-      Strategy: Standard. 2 matches.
-      Target Odds: 1.40 - 1.60 Total.
-      Philosophy: "Growth is good. Harvest 50%."
-      
-    - Ticket 3 (The Assassin - Rollover):
-      Strategy: Aggressive. 3 matches.
-      Target Odds: 1.70 - 2.00 Total.
-      Philosophy: "Risk for rapid expansion."
-    `;
-  } else {
-    // Bet Builder
-    const markets = config.selectedMarkets?.join(", ") || "Goals, Corners";
-    modeInstruction = `Scope: Bet Builder / Correlated Markets. Focus: ${markets}`;
-    promptDetails = `
-    OBJECTIVE: Intra-Match Correlations.
-    - Find games where one outcome forces another (e.g. Team A wins + Team A Over 1.5 Goals).
-    - Ticket 1: The Iron Bank (Safe Builder)
-    - Ticket 2: The Bookie Basher (Medium Builder)
-    - Ticket 3: The Assassin (High Risk Builder)
-    `;
-  }
 
-  const prompt = `
-    Subject: GLOBAL SPORTS ANALYSIS - WARLORD PROTOCOL.
-    Mode: ${modeInstruction}
-    
-    ${promptDetails}
-    
-    CONSTRAINT - THE ANTI-GLORY RULE: 
-       - IGNORE "Glory Leagues" (Premier League, NBA, etc.) unless value is undeniable. 
-       - Prioritize obscure leagues/sports.
-       - Ignore team names. Focus on stats. 
-  `;
+    const payload: GenerateContentParameters = {
+        model: modelName,
+        contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+        config: {
+            systemInstruction: systemInstruction,
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: "OBJECT",
+                properties: {
+                    analysis: { type: "STRING" },
+                    matches: {
+                        type: "ARRAY",
+                        items: {
+                            type: "OBJECT",
+                            properties: {
+                                id: { type: "NUMBER" },
+                                market: { type: "STRING" },
+                                selection: { type: "STRING" },
+                                odds: { type: "NUMBER" },
+                            }
+                        }
+                    },
+                    stake: { type: "NUMBER" },
+                    estimatedReturn: { type: "NUMBER" },
+                    status: { type: "STRING" }
+                },
+                required: ["analysis", "matches", "stake", "estimatedReturn", "status"]
+            }
+        },
+        tools: [{ "google_search": {} }]
+    };
 
-  try {
-    const response = await ai.models.generateContent({
-      model: modelName,
-      contents: prompt,
-      config: {
-        systemInstruction: SYSTEM_INSTRUCTION,
-        responseMimeType: "application/json",
-        responseSchema: responseSchema,
-        temperature: 0.6,
-      },
+    try {
+        const response: GenerateContentResponse = await ai.models.generateContent(payload);
+
+        // The response text is a JSON string adhering to the schema
+        const jsonText = response.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!jsonText) {
+            throw new Error("AI did not return a valid JSON response.");
+        }
+
+        // Parse and return the structured Ticket object
+        return JSON.parse(jsonText) as Ticket;
+
+    } catch (error) {
+        console.error("Error generating content:", error);
+        // Throw a specific error based on the API response if possible
+        throw new Error("Failed to execute Warlord Protocol: Network or API Error.");
+    }
+}
+
+// --- Conversational Chat Function ---
+
+/**
+ * Initializes a chat session with the Warlord Protocol.
+ * @returns A Chat session object.
+ */
+export function startChat(): Chat {
+    // If the key is missing, this will fail during the first API call, 
+    // but the object can still be initialized here.
+    const chat = ai.chats.create({
+        model: modelName,
+        config: {
+            systemInstruction: systemInstruction,
+        }
     });
-
-    let jsonText = response.text;
-    if (!jsonText) throw new Error("No analysis generated.");
-
-    // Clean Markdown code blocks if present
-    jsonText = jsonText.replace(/```json/g, '').replace(/```/g, '').trim();
-
-    const rawData = JSON.parse(jsonText);
-    
-    if (!rawData.tickets || !Array.isArray(rawData.tickets)) {
-        throw new Error("Invalid protocol response structure.");
-    }
-
-    // Hydrate with client-side IDs and timestamp
-    const tickets: Ticket[] = rawData.tickets.map((t: any) => ({
-      id: crypto.randomUUID(),
-      timestamp: Date.now(),
-      mode: config.mode,
-      sport: "Global Omni-Scan",
-      strategyName: t.strategyName,
-      totalOdds: t.totalOdds,
-      mathematicalEdge: t.mathematicalEdge,
-      matches: t.matches
-    }));
-
-    return tickets;
-
-  } catch (error) {
-    console.error("KingBayo Protocol Failure:", error);
-    throw error;
-  }
-};
+    return chat;
+}
