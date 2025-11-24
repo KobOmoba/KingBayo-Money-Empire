@@ -1,45 +1,54 @@
 
-export enum AppMode {
-  ACCUMULATOR_24H = '24h Accumulator',
-  LIVE_SCANNER = 'Live Scanner',
-  BET_BUILDER = 'Bet Builder',
-  ROLLOVER = 'Rollover Challenge'
-}
+// types.ts
+
+// --- Core Data Structures for AI Output ---
 
 export enum RiskLevel {
-  LOW = 'Low Risk (Iron Bank)',
-  MEDIUM = 'Medium Risk (Bookie Basher)',
-  HIGH = 'High Risk (High-Yield Assassin)'
+    IronBank = 'The Iron Bank', // 1.25-1.45 odds per leg
+    BookieBasher = 'The Bookie Basher', // 1.50-1.75 odds per leg
+    HighYieldAssassin = 'The High-Yield Assassin', // 1.80+ odds per leg
 }
 
-export interface MatchSelection {
-  sport: string; // Added to support multi-sport tickets
-  homeTeam: string;
-  awayTeam: string;
-  league: string;
-  time: string;
-  market: string;
-  selection: string;
-  odds: number;
-  confidence: number; // 0-100
-  reasoning: string;
-  isLive: boolean;
+export enum AppMode {
+    Accumulator = '24h Accumulator',
+    LiveScanner = 'Live Scanner',
+    BetBuilder = 'Bet Builder',
+}
+
+export interface MatchLeg {
+    id: string;
+    sport: string;
+    fixture: string; // e.g., "Team A vs Team B"
+    market: string; // e.g., "Total Goals Over 2.5"
+    odds: number;
+    confidence: number; // 0.0 to 1.0
+    isLive: boolean;
 }
 
 export interface Ticket {
-  id: string;
-  timestamp: number;
-  strategyName: string;
-  totalOdds: number;
-  mathematicalEdge: number; // 0-100
-  matches: MatchSelection[];
-  sport: string; // This will now represent the overarching scope e.g., "Global Omni-Scan"
-  mode: AppMode;
+    id: string;
+    strategy: RiskLevel; // The name of the AI output strategy
+    mode: AppMode;
+    totalOdds: number; // Must be between 5.0 and 10.0
+    winProbability: number; // Overall Edge, 0.0 to 1.0 (for Recharts)
+    analysisReasoning: string; // AI's cold-blooded justification
+    legs: MatchLeg[];
+    timestamp: number;
 }
 
-export interface GeneratorConfig {
-  mode: AppMode;
-  matchCount?: number; // Used for "Matches to Spot" slider
-  currentCapital?: number; // Added for Rollover mode
-  selectedMarkets?: string[]; // Added for Bet Builder
+// --- App State Interfaces ---
+
+export interface ControlsState {
+    mode: AppMode;
+    riskLevel: RiskLevel;
+    matchesToSpot: number; // Only for LiveScanner
+    betBuilderMarkets: string[]; // Only for BetBuilder
+}
+
+export interface AppState {
+    controls: ControlsState;
+    tickets: Ticket[];
+    history: Ticket[];
+    isGenerating: boolean;
+    theme: 'dark' | 'light';
 }
