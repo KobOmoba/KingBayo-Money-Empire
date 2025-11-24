@@ -1,101 +1,131 @@
 import React from 'react';
-import { History, DollarSign, Download, Trash } from 'lucide-react';
-import { Ticket } from '../types'; 
+import { GeneratedTicket, MatchLeg } from '../types';
+import { History, Download, Trash2, Maximize2 } from 'lucide-react';
 
 interface HistoryPanelProps {
-    history: Ticket[];
-    clearHistory: () => void;
+    history: GeneratedTicket[];
+    onLoad: (ticket: GeneratedTicket) => void;
+    onClear: () => void;
 }
 
-const HistoryPanel: React.FC<HistoryPanelProps> = ({ history, clearHistory }) => {
-    const exportToCSV = () => {
-        if (history.length === 0) return;
+/**
+ * Robust function to convert history to CSV format and trigger download.
+ * Explicitly casts and handles string formatting for safety.
+ */
+const exportToCsv = (history: GeneratedTicket[]) => {
+    if (history.length === 0) {
+        alert("History is empty. Nothing to export.");
+        return;
+    }
 
-        // Use flatMap to safely iterate over the history array and its nested legs array
-        const csvData = history.flatMap(ticket => 
-            ticket.legs.map(leg => ({
-                TicketID: ticket.id,
-                Strategy: ticket.strategy,
-                Mode: ticket.mode,
-                TotalOdds: ticket.totalOdds.toFixed(2),
-                WinProbability: (ticket.winProbability * 100).toFixed(1) + '%',
-                Fixture: leg.fixture,
-                Market: leg.market,
-                Odds: leg.odds.toFixed(2),
-                Confidence: (leg.confidence * 100).toFixed(1) + '%',
-                IsLive: leg.isLive ? 'YES' : 'NO',
-                Reasoning: ticket.analysisReasoning.replace(/"/g, '""'),
-            }))
-        );
-
-        // Check if csvData is empty before accessing headers
-        if (csvData.length === 0) return;
-
-        const headers = Object.keys(csvData[0]);
-        
-        const csv = [
-            headers.join(','), 
-            ...csvData.map(row => 
-                headers.map(header => `"${row[header]}"`).join(',') 
-            )
-        ].join('\n');
-
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.setAttribute('href', url);
-        link.setAttribute('download', 'KingBayo_Money_Empire_History.csv');
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+    // Function to ensure a string is wrapped in quotes and internal quotes are escaped (CSV standard)
+    const quoteString = (str: string | number): string => {
+        const s = String(str);
+        // Replace all double quotes with two double quotes
+        const escaped = s.replace(/"/g, '""'); 
+        // Wrap the entire string in double quotes
+        return `"${escaped}"`;
     };
 
-    return (
-        <div className="bg-slate-950/70 p-4 rounded-xl shadow-2xl border border-slate-800 space-y-4">
-            <h3 className="text-lg font-extrabold uppercase text-slate-100 border-b border-slate-700 pb-2 flex items-center space-x-2">
-                <History className="h-5 w-5 text-neon-amber" />
-                <span>Long-Term Warfare Archive</span>
-            </h3>
+    const headers = [
+        "Timestamp", "Strategy", "TotalOdds", "MathematicalEdge", "Matchup", 
+        "Sport", "Market", "Prediction", "Odds", "Confidence", "Reasoning"
+    ].map(quoteString).join(',');
 
-            <div className="flex justify-between items-center">
-                <p className="text-sm font-semibold text-slate-400">{history.length} Protocols Recorded</p>
-                <div className="flex space-x-2">
-                    <button
-                        onClick={exportToCSV}
-                        disabled={history.length === 0}
-                        className="flex items-center space-x-1 text-xs px-3 py-1.5 rounded-lg bg-neon-emerald/20 text-neon-emerald hover:bg-neon-emerald/40 disabled:opacity-50 transition-colors"
-                    >
-                        <Download className="h-4 w-4" />
-                        <span>CSV Export</span>
-                    </button>
-                    <button
-                        onClick={clearHistory}
-                        disabled={history.length === 0}
-                        className="flex items-center space-x-1 text-xs px-3 py-1.5 rounded-lg bg-neon-red/20 text-neon-red hover:bg-neon-red/40 disabled:opacity-50 transition-colors"
-                    >
-                        <Trash className="h-4 w-4" />
-                        <span>Purge</span>
-                    </button>
-                </div>
+    const rows = history.flatMap(ticket => {
+        // Ensure all numeric types are formatted explicitly
+        const totalOdds = ticket.totalOdds.toFixed(2);
+        const mathEdge = ticket.mathematicalEdge.toFixed(1);
+
+        return ticket.legs.map((leg: MatchLeg) => {
+            const rowData = [
+                new Date(ticket.timestamp).toISOString(),
+                ticket.strategyName,
+                totalOdds,
+                mathEdge,
+                leg.matchup,
+                leg.sport,
+                leg.market,
+                leg.prediction,
+                leg.odds.toFixed(2),
+                leg.confidence.toFixed(1),
+                leg.reasoning
+            ];
+            
+            // Map the row data and apply quoting to every field
+            return rowData.map(quoteString).join(',');
+        });
+    });
+
+    const csvContent = [headers, ...rows].join('\n');
+    
+    // Create a Blob and download it
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute("href", url);
+    link.setAttribute("download", `KingBayo_History_${Date.now()}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url); // Clean up the created URL
+};
+
+
+const HistoryPanel: React.FC<HistoryPanelProps> = ({ history, onLoad, onClear }) => {
+    
+    return (
+        <div className="p-6 bg-slate-800/70 rounded-xl shadow-2xl border border-neon-amber/20">
+            <h2 className="text-xl font-bold mb-4 text-neon-amber uppercase tracking-wider border-b border-neon-amber/30 pb-2">
+                <History className="inline h-5 w-5 mr-2" />
+                WARLORD HISTORY LOG ({history.length})
+            </h2>
+
+            <div className="flex space-x-2 mb-4">
+                <button 
+                    onClick={() => exportToCsv(history)}
+                    disabled={history.length === 0}
+                    className="flex-1 py-2 px-3 text-sm font-semibold rounded-lg bg-slate-700 text-slate-200 hover:bg-slate-600 transition-colors duration-150 disabled:opacity-50"
+                >
+                    <Download className="inline h-4 w-4 mr-1" />
+                    Export (.csv)
+                </button>
+                <button 
+                    onClick={onClear}
+                    disabled={history.length === 0}
+                    className="py-2 px-3 text-sm font-semibold rounded-lg bg-neon-red/70 text-white hover:bg-neon-red transition-colors duration-150 disabled:opacity-50"
+                >
+                    <Trash2 className="inline h-4 w-4" />
+                </button>
             </div>
 
-            <div className="max-h-96 overflow-y-auto space-y-2 pr-2">
+            <div className="max-h-96 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
                 {history.length === 0 ? (
-                    <p className="text-slate-500 italic text-sm text-center py-4">
-                        No previous deployments in the archive.
-                    </p>
+                    <p className="text-slate-500 italic text-center py-4">No tactical history recorded. Initiate first strike.</p>
                 ) : (
-                    // *** THIS IS THE CRITICAL FIX AREA: Using .slice().reverse().map() ***
-                    history.slice().reverse().map((ticket, index) => (
-                        <div key={index} className="flex justify-between items-center p-2 bg-slate-800 rounded-lg border border-slate-700 hover:bg-slate-700/70 transition-colors">
-                            <div className="flex flex-col">
-                                <span className="text-sm font-mono text-slate-200">{ticket.strategy}</span>
-                                <span className="text-xs text-slate-500">{new Date(ticket.timestamp).toLocaleDateString()} - {ticket.mode}</span>
+                    // Display history items in reverse chronological order
+                    [...history].reverse().map((ticket) => (
+                        <div 
+                            key={ticket.timestamp} 
+                            className="p-3 bg-slate-900/50 rounded-lg border border-slate-700 flex justify-between items-center transition-all duration-200 hover:border-neon-amber/50"
+                        >
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-bold text-slate-100 truncate">{ticket.strategyName}</p>
+                                <p className="text-xs text-slate-400">
+                                    Odds: <strong className="text-neon-emerald">{ticket.totalOdds.toFixed(2)}x</strong> 
+                                    | Edge: {ticket.mathematicalEdge.toFixed(1)}%
+                                </p>
+                                <p className="text-xs text-slate-500">{new Date(ticket.timestamp).toLocaleTimeString()}</p>
                             </div>
-                            <div className="flex items-center space-x-1">
-                                <DollarSign className="h-4 w-4 text-neon-emerald" />
-                                <span className="font-bold text-neon-emerald text-lg">@{ticket.totalOdds.toFixed(2)}</span>
-                            </div>
+                            <button
+                                onClick={() => onLoad(ticket)}
+                                className="ml-4 p-2 text-xs font-semibold rounded-full bg-cyber-blue text-slate-900 hover:bg-cyber-blue/80 transition-colors"
+                                title="Load Ticket"
+                            >
+                                <Maximize2 className="h-4 w-4" />
+                            </button>
                         </div>
                     ))
                 )}
