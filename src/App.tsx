@@ -40,6 +40,7 @@ const App: React.FC = () => {
         try {
             const savedHistory = localStorage.getItem(HISTORY_KEY);
             if (savedHistory) {
+                // Ensure explicit type casting when reading from LocalStorage
                 const parsedHistory: GeneratedTicket[] = JSON.parse(savedHistory);
                 setState(s => ({ ...s, history: parsedHistory }));
                 
@@ -128,7 +129,7 @@ const App: React.FC = () => {
                     <div className="lg:col-span-2">
                         <Controls 
                             state={state} 
-                            setState={setState} // setState is implicitly typed by useState, no need for explicit typing here
+                            setState={setState} 
                             onGenerate={handleGenerate} 
                         />
                     </div>
