@@ -11,6 +11,7 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({ history, clearHistory }) =>
     const exportToCSV = () => {
         if (history.length === 0) return;
 
+        // Use flatMap to safely iterate over the history array and its nested legs array
         const csvData = history.flatMap(ticket => 
             ticket.legs.map(leg => ({
                 TicketID: ticket.id,
@@ -26,6 +27,9 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({ history, clearHistory }) =>
                 Reasoning: ticket.analysisReasoning.replace(/"/g, '""'),
             }))
         );
+
+        // Check if csvData is empty before accessing headers
+        if (csvData.length === 0) return;
 
         const headers = Object.keys(csvData[0]);
         
@@ -81,6 +85,7 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({ history, clearHistory }) =>
                         No previous deployments in the archive.
                     </p>
                 ) : (
+                    // *** THIS IS THE CRITICAL FIX AREA: Using .slice().reverse().map() ***
                     history.slice().reverse().map((ticket, index) => (
                         <div key={index} className="flex justify-between items-center p-2 bg-slate-800 rounded-lg border border-slate-700 hover:bg-slate-700/70 transition-colors">
                             <div className="flex flex-col">
