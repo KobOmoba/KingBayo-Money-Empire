@@ -5,7 +5,8 @@ import { History, Download, Trash2, Maximize2 } from 'lucide-react';
 interface HistoryPanelProps {
     history: GeneratedTicket[];
     onLoad: (ticket: GeneratedTicket) => void;
-    onClear: () => void;
+    // CRITICAL FIX: Prop name is 'onClear' (not 'clearHistory')
+    onClear: () => void; 
 }
 
 /**
@@ -38,7 +39,7 @@ const exportToCsv = (history: GeneratedTicket[]) => {
         const mathEdge = ticket.mathematicalEdge.toFixed(1);
 
         return ticket.legs.map((leg: MatchLeg) => {
-            const rowData = [
+            const rowData: (string | number)[] = [ // Explicit type definition for safety
                 new Date(ticket.timestamp).toISOString(),
                 ticket.strategyName,
                 totalOdds,
