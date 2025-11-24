@@ -4,7 +4,7 @@ import Header from './components/Header';
 import Controls from './components/Controls';
 import TicketDisplay from './components/TicketDisplay';
 import HistoryPanel from './components/HistoryPanel';
-import { generatePredictionTicket } from './services/geminiService'; // The mock AI service
+import { generatePredictionTicket } from './services/geminiService';
 
 // Initial State for the application
 const INITIAL_STATE: AppState = {
@@ -40,7 +40,6 @@ const App: React.FC = () => {
         try {
             const savedHistory = localStorage.getItem(HISTORY_KEY);
             if (savedHistory) {
-                // Ensure explicit type casting when reading from LocalStorage
                 const parsedHistory: GeneratedTicket[] = JSON.parse(savedHistory);
                 setState(s => ({ ...s, history: parsedHistory }));
                 
@@ -61,7 +60,6 @@ const App: React.FC = () => {
     // Persist Dark Mode setting
     useEffect(() => {
         localStorage.setItem(DARK_MODE_KEY, JSON.stringify(isDarkMode));
-        // Apply tailwind class to body
         document.body.className = isDarkMode ? 'bg-slate-900 text-slate-100 min-h-screen' : 'bg-gray-100 text-gray-900 min-h-screen';
     }, [isDarkMode]);
 
@@ -130,7 +128,7 @@ const App: React.FC = () => {
                     <div className="lg:col-span-2">
                         <Controls 
                             state={state} 
-                            setState={setState} 
+                            setState={setState} // setState is implicitly typed by useState, no need for explicit typing here
                             onGenerate={handleGenerate} 
                         />
                     </div>
@@ -138,7 +136,7 @@ const App: React.FC = () => {
                         <HistoryPanel 
                             history={state.history} 
                             onLoad={handleLoadTicket} 
-                            onClear={handleClearHistory} // <--- THE CRITICAL FIX (TS2322)
+                            onClear={handleClearHistory}
                         />
                     </div>
                 </div>
