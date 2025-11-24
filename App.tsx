@@ -1,198 +1,131 @@
 
-import React, { useState, useEffect } from 'react';
-import Header from './Header'; // FIXED: Removed ./components/
-import Controls from './Controls'; // FIXED: Removed ./components/
-import TicketDisplay from './TicketDisplay'; // FIXED: Removed ./components/
-import HistoryPanel from './HistoryPanel'; // FIXED: Removed ./components/
-import SourceList from './SourceList'; // FIXED: Removed ./components/
-import { generateTicket } from './geminiService'; // FIXED: Removed ./services/
-import { Ticket, GeneratorConfig, AppMode } from './types';
+import React, { useState, useEffect, useCallback } from 'react';
+import Header from './components/Header';
+import Controls from './components/Controls';
+import TicketDisplay from './components/TicketDisplay';
+import SourceList from './components/SourceList';
+import HistoryPanel from './components/HistoryPanel';
+import { AppState, ControlsState, AppMode, RiskLevel, Ticket } from './types';
+import { generateTickets } from './services/geminiService';
+
+// Initial state, loaded from LocalStorage if available
+const loadInitialState = (): AppState => {
+    const savedHistory = localStorage.getItem('kingbayo_history');
+    const savedTheme = localStorage.getItem('kingbayo_theme');
+    
+    return {
+        controls: {
+            mode: AppMode.Accumulator,
+            riskLevel: RiskLevel.IronBank,
+            matchesToSpot: 20,
+            betBuilderMarkets: ["Over 2.5 Goals", "Both Teams To Score"],
+        },
+        tickets: [],
+        history: savedHistory ? JSON.parse(savedHistory) : [],
+        isGenerating: false,
+        theme: (savedTheme as 'dark' | 'light') || 'dark',
+    };
+};
 
 const App: React.FC = () => {
-  const [config, setConfig] = useState<GeneratorConfig>({
-    mode: AppMode.ACCUMULATOR_24H,
-    matchCount: 3, // Default for matches to spot
-    currentCapital: 1000, // Default rollover start
-    selectedMarkets: []
-  });
+    const [state, setState] = useState<AppState>(loadInitialState);
 
-  const [loading, setLoading] = useState<boolean>(false);
-  const [currentTickets, setCurrentTickets] = useState<Ticket[]>([]);
-  const [activeTicketIndex, setActiveTicketIndex] = useState<number>(0);
-  const [history, setHistory] = useState<Ticket[]>([]);
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(true);
+    // Effect to handle dark/light mode class on the HTML element
+    useEffect(() => {
+        document.documentElement.className = state.theme;
+    }, [state.theme]);
+    
+    // Effect to persist history to LocalStorage
+    useEffect(() => {
+        localStorage.setItem('kingbayo_history', JSON.stringify(state.history));
+    }, [state.history]);
 
-  // Initialize Theme
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('kingbayo_theme');
-    if (savedTheme) {
-      setIsDarkMode(savedTheme === 'dark');
-    } else {
-      setIsDarkMode(true); // Default to dark
-    }
-  }, []);
+    const toggleTheme = () => {
+        setState(prev => {
+            const newTheme = prev.theme === 'dark' ? 'light' : 'dark';
+            localStorage.setItem('kingbayo_theme', newTheme);
+            return { ...prev, theme: newTheme };
+        });
+    };
 
-  // Apply Theme
-  useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('kingbayo_theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('kingbayo_theme', 'light');
-    }
-  }, [isDarkMode]);
+    const setControls = (update: Partial<ControlsState>) => {
+        setState(prev => ({ 
+            ...prev, 
+            controls: { ...prev.controls, ...update } 
+        }));
+    };
 
-  const toggleTheme = () => {
-    setIsDarkMode(!isDarkMode);
-  };
-
-  // Load History on Mount
-  useEffect(() => {
-    const saved = localStorage.getItem('kingbayo_history');
-    if (saved) {
-      try {
-        setHistory(JSON.parse(saved));
-      } catch (e) {
-        console.error("Corruption in history archives.", e);
-      }
-    }
-  }, []);
-
-  // Save History on Update
-  useEffect(() => {
-    localStorage.setItem('kingbayo_history', JSON.stringify(history));
-  }, [history]);
-
-  const handleGenerate = async () => {
-    setLoading(true);
-    try {
-      // Service now returns an array of 3 tickets
-      const tickets = await generateTicket(config);
-      setCurrentTickets(tickets);
-      setActiveTicketIndex(0); // Reset to first option
-      setHistory(prev => [...tickets, ...prev]); // Save all 3 to history
-    } catch (error: any) {
-      console.error(error);
-      if (error.message && (error.message.includes("403") || error.message.includes("key"))) {
-         alert("WARLORD ALERT: Security Token Expired. Please refresh the application.");
-      } else {
-         alert("WARLORD ALERT: Protocol Execution Failed.\n\n1. Check your Neural Link (Internet Connection).\n2. Market Volatility may be too high. Retry.");
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadFromHistory = (ticket: Ticket) => {
-    // When loading from history, we treat it as a single view
-    setCurrentTickets([ticket]);
-    setActiveTicketIndex(0);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors duration-300 pb-12 font-sans selection:bg-emerald-500/30 selection:text-emerald-800 dark:selection:text-emerald-200">
-      <Header isDarkMode={isDarkMode} toggleTheme={toggleTheme} />
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+    const clearHistory = () => {
+        setState(prev => ({ ...prev, history: [] }));
+    };
+    
+    const onGenerate = useCallback(async () => {
+        setState(prev => ({ ...prev, isGenerating: true, tickets: [] }));
         
-        {/* Top Control Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          
-          <div className="lg:col-span-3">
-            <Controls 
-              config={config} 
-              setConfig={setConfig} 
-              onGenerate={handleGenerate}
-              loading={loading}
-            />
+        try {
+            const { mode, riskLevel } = state.controls;
+            
+            // The service generates 9 tickets in Accumulator mode, or 3 for other modes
+            const newTickets = await generateTickets(mode, mode !== AppMode.Accumulator ? riskLevel : undefined);
 
-            {currentTickets.length > 0 ? (
-               <div className="animate-fade-in">
-                 {/* Multi-Result Selector Tabs */}
-                 {currentTickets.length > 1 && (
-                   <div className="flex space-x-2 mb-4 overflow-x-auto pb-2 scrollbar-hide">
-                      {currentTickets.map((ticket, idx) => {
-                        const sName = ticket.strategyName.toLowerCase();
+            setState(prev => ({
+                ...prev,
+                tickets: newTickets,
+                history: [...prev.history, ...newTickets],
+            }));
+            
+        } catch (error) {
+            console.error(error);
+            // Display an error message ticket or alert
+            alert((error as Error).message || "An unknown Warlord Protocol error occurred.");
+            setState(prev => ({ ...prev, tickets: [] }));
+            
+        } finally {
+            setState(prev => ({ ...prev, isGenerating: false }));
+        }
+    }, [state.controls]);
+
+
+    return (
+        <div className="min-h-screen bg-slate-900 dark:bg-slate-900 transition-colors duration-500">
+            <Header theme={state.theme} toggleTheme={toggleTheme} />
+            
+            <main className="container mx-auto p-4 pt-8">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    {/* Left Column (Controls & AI Outputs) */}
+                    <div className="lg:col-span-9 space-y-8">
+                        <Controls 
+                            controls={state.controls} 
+                            setControls={setControls} 
+                            onGenerate={onGenerate} 
+                            isGenerating={state.isGenerating}
+                        />
                         
-                        // Updated Badge Detection Logic for new Strategy Names
-                        const isSafe = sName.includes('iron bank') || sName.includes('safe') || sName.includes('option a') || sName.includes('secure');
-                        const isBalanced = sName.includes('bookie basher') || sName.includes('balanced') || sName.includes('option b') || sName.includes('harvest');
-                        const isAggressive = sName.includes('assassin') || sName.includes('high') || sName.includes('option c') || sName.includes('yield');
-                        
-                        let badge = "Option " + (idx + 1);
-                        if (isSafe) badge = "THE IRON BANK";
-                        if (isBalanced) badge = "THE BOOKIE BASHER";
-                        if (isAggressive) badge = "THE ASSASSIN";
+                        <TicketDisplay tickets={state.tickets} />
+                    </div>
 
-                        return (
-                        <button
-                          key={ticket.id}
-                          onClick={() => setActiveTicketIndex(idx)}
-                          className={`flex-1 min-w-[140px] p-3 rounded-lg border transition-all duration-200 text-left relative overflow-hidden group ${
-                            activeTicketIndex === idx
-                              ? 'bg-emerald-500/10 border-emerald-500 text-emerald-700 dark:text-white shadow-[0_0_10px_rgba(16,185,129,0.2)]'
-                              : 'bg-white dark:bg-slate-850 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600'
-                          }`}
-                        >
-                          <div className="flex justify-between items-center mb-1">
-                             <span className={`text-[10px] uppercase font-mono tracking-widest ${activeTicketIndex === idx ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'}`}>
-                               {badge}
-                             </span>
-                             {activeTicketIndex === idx && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_5px_#10b981]"></div>}
-                          </div>
-                          <div className="font-bold text-sm truncate text-slate-800 dark:text-slate-100">
-                             {ticket.strategyName}
-                          </div>
-                          <div className="text-xs font-mono text-slate-500 dark:text-slate-400 mt-1">Odds: <span className="text-slate-900 dark:text-white font-bold">{ticket.totalOdds.toFixed(2)}</span></div>
-                        </button>
-                      )})}
-                   </div>
-                 )}
-
-                 <SourceList ticket={currentTickets[activeTicketIndex]} />
-                 <TicketDisplay ticket={currentTickets[activeTicketIndex]} />
-               </div>
-            ) : (
-               <div className="border border-dashed border-slate-300 dark:border-slate-700 rounded-xl p-12 text-center bg-white/50 dark:bg-slate-900/50 transition-colors duration-300">
-                  <div className="text-slate-400 dark:text-slate-500 text-sm font-mono uppercase tracking-widest">
-                     Waiting for Analysis Parameters...
-                  </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-600 mt-2">
-                     Initiate the Warlord Protocol to generate Iron Bank, Bookie Basher, and Assassin strike plans.
-                  </p>
-               </div>
-            )}
-          </div>
-
-          <div className="lg:col-span-1">
-             <div className="sticky top-24">
-                <HistoryPanel history={history} onLoadTicket={loadFromHistory} />
-             </div>
-          </div>
-
+                    {/* Right Column (Sidebar) */}
+                    <div className="lg:col-span-3 space-y-6">
+                        <SourceList />
+                        <HistoryPanel 
+                            history={state.history} 
+                            clearHistory={clearHistory} 
+                        />
+                    </div>
+                </div>
+            </main>
+            
+            {/* Footer */}
+            <footer className="mt-12 py-4 text-center border-t border-slate-800 bg-slate-950/70">
+                <p className="text-xs text-slate-500 italic">
+                    <span className="text-neon-red font-bold">Responsible Gambling Disclaimer:</span> KingBayo Money Empire is an advanced AI-powered sports **analytics tool** for educational and hypothetical purposes. It is NOT a gambling site. **Use of this analysis for real-world betting is done at your own risk.** Never wager more than you can afford to lose.
+                </p>
+                <p className="mt-2 text-sm font-mono text-slate-600">
+                    © 2025 AariNAT Company Limited
+                </p>
+            </footer>
         </div>
-
-      </main>
-
-      <footer className="mt-20 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 py-8 transition-colors duration-300">
-        <div className="max-w-7xl mx-auto px-4 text-center">
-           <p className="text-xs text-slate-400 dark:text-slate-500 mb-2 uppercase tracking-widest">
-              Responsible Gambling Disclaimer
-           </p>
-           <p className="text-[10px] text-slate-500 dark:text-slate-600 max-w-2xl mx-auto mb-4">
-              This application is for simulation and analytical purposes only. KingBayo Money Empire does not encourage gambling. 
-              Odds are generated by AI based on statistical probability and may not reflect real-time bookmaker lines. 
-              Always gamble responsibly. When the fun stops, stop.
-           </p>
-           <p className="text-sm font-bold text-slate-400 dark:text-slate-400 font-mono">
-              © {new Date().getFullYear()} AariNAT Company Limited
-           </p>
-        </div>
-      </footer>
-    </div>
-  );
+    );
 };
 
 export default App;
