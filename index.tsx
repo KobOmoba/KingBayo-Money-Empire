@@ -1,15 +1,21 @@
+// index.tsx
+
 import React from 'react';
-import ReactDOM from 'react-dom/client';
+// We need to use the imported createRoot from the importmap
+import * as ReactDOMClient from 'react-dom/client';
 import App from './App';
 
-const rootElement = document.getElementById('root');
-if (!rootElement) {
-  throw new Error("Could not find root element to mount to");
-}
+// Find the root element
+const container = document.getElementById('root');
 
-const root = ReactDOM.createRoot(rootElement);
-root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
+if (container) {
+    // Create the root
+    const root = (ReactDOMClient as any).createRoot(container);
+    
+    // Initial render
+    root.render(
+        <React.StrictMode>
+            <App />
+        </React.StrictMode>
+    );
+}
