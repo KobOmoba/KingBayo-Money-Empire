@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    
+    // Fixed lib array
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    
+    /* Paths (to help Vite find files) */
+    "baseUrl": "./src",
+    
+    /* Linting & Structure */
+    "strict": true,
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  // We remove the problematic 'references' array entirely to simplify the build
+  // "references": [{ "path": "./tsconfig.node.json" }] 
+}
