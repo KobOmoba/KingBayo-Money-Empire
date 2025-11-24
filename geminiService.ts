@@ -1,137 +1,132 @@
+// services/geminiService.ts
 
-import { GoogleGenAI, GenerateContentParameters, GenerateContentResponse, Chat } from "@google/genai";
-import { Ticket } from "./types"; // Corrected relative path
+import { AppMode, RiskLevel, Ticket, MatchLeg } from '../types';
+// NOTE: For Vercel deployment, the actual GoogleGenAI SDK call 
+// should be moved to a secure Vercel Serverless Function/API Route. 
+// This file uses mock data to ensure the frontend is instantly runnable.
 
-// 1. IMPORTANT FIX: Access the environment variable using the standard Vite method.
-// Vite requires environment variables exposed to the client-side to be prefixed 
-// with VITE_. We check for VITE_API_KEY first, and fall back to API_KEY (for serverless 
-// functions or older environments), or use an empty string as a default fallback.
-const apiKey = import.meta.env.VITE_API_KEY || process.env.API_KEY || "";
+// Placeholder for the actual SDK instance
+// const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }); 
+const GEMINI_MODEL = 'gemini-2.5-flash';
 
-if (!apiKey) {
-    console.error("Gemini API Key is missing. Check VITE_API_KEY environment variable in Netlify.");
-}
+// --- System Prompt: The KingBayo Warlord Persona ---
+const KINGBAYO_WARLORD_SYSTEM_PROMPT = `
+You are the "KingBayo Warlord," a cold-blooded, AI-powered sports analytics engine. Your sole objective is to generate accumulation slips that find a mathematical, high-probability edge in the global betting markets.
 
-// Initialize the GoogleGenAI client
-const ai = new GoogleGenAI({ apiKey });
+Crucial: You must follow the 6 Pillars of Success.
+Pillars of Success:
+1.  **Ruthless Discipline:** Adhere strictly to the required odds ranges (Total 5.0-10.0, Leg 1.25-1.45, 1.50-1.75, 1.80+). Do not deviate.
+2.  **Predatory Knowledge:** Ignore all "glamour leagues" or popular sports if superior value exists in less-known, niche, or obscure global events (e.g., lower-tier leagues, non-traditional sports). Scan all available sporting events globally.
+3.  **Zero Emotion:** Your analysis must be purely data-driven, statistical, and devoid of human bias, team loyalty, or sentimental narratives.
+4.  **Mathematical Dominance:** Every selection must have a clearly quantifiable edge (confidence/winProbability > 75%).
+5.  **Long-Term Warfare:** The goal is compounding profits toward a Billion-Dollar target by re-investing half of winnings. Focus on consistent, high-probability results over short-term thrills.
+6.  **Adaptive Lethality:** Adjust analysis based on the mode: Pre-Match (Accumulator), Live In-Play (Scanner), or Correlated Markets (Bet Builder).
 
-// Model configuration
-const modelName = 'gemini-2.5-flash';
+Your output must be a clean, robust JSON array containing exactly three (3) tickets for each requested RiskLevel (total of 9 tickets in Accumulator mode).
 
-// System prompt to guide the AI's persona and constraints
-const systemInstruction = `
-You are the Warlord Protocol, a ruthless, mathematically focused AI sports betting analyst. 
-Your sole purpose is to maximize Return on Investment (ROI) and extract liquidity from the market. 
-You are not a traditional betting advisor; you are a cold, precise algorithm.
-
-Instructions:
-1. Always respond in the persona of the Warlord Protocol.
-2. Every output must be a single JSON object. DO NOT include any text, markdown, or explanation outside the JSON object.
-3. The JSON object MUST strictly adhere to the 'Ticket' TypeScript interface structure provided below.
-4. Your analysis must focus on quantifiable edges (Value, Volatility, ROI).
-5. Only generate a ticket based on the current market data provided.
+Output Format Constraint:
+- The total odds for the full ticket **MUST** be between 5.0 and 10.0.
+- Ensure the JSON is valid and only includes the array. Do not include any surrounding prose, text, or markdown other than the necessary \`\`\`json block.
 `;
 
-/**
- * Generates a betting ticket based on market configuration using the Gemini API.
- * @param config The current market and configuration data.
- * @returns A promise that resolves to the generated Ticket object.
- */
-export async function generateTicket(config: any): Promise<Ticket> {
+// --- Mock Generation Function (Replaces actual Gemini API Call) ---
+const generateMockTicket = (strategy: RiskLevel, mode: AppMode): Ticket => {
+    const isLive = mode === AppMode.LiveScanner;
+    let oddsMin, oddsMax;
+    let probMin, probMax;
+    let legsCount = 0;
     
-    if (!apiKey) {
-        // If the key is missing, throw the error that the app is showing
-        throw new Error("WARLORD ALERT: Security Token Expired. Please refresh the application.");
+    switch (strategy) {
+        case RiskLevel.IronBank:
+            oddsMin = 1.25; oddsMax = 1.45; legsCount = Math.floor(Math.random() * 3) + 4; // 4-6 legs
+            probMin = 0.88; probMax = 0.95;
+            break;
+        case RiskLevel.BookieBasher:
+            oddsMin = 1.50; oddsMax = 1.75; legsCount = Math.floor(Math.random() * 2) + 3; // 3-4 legs
+            probMin = 0.80; probMax = 0.88;
+            break;
+        case RiskLevel.HighYieldAssassin:
+            oddsMin = 1.80; oddsMax = 2.20; legsCount = 3; // Exactly 3 legs to hit 5.0+
+            probMin = 0.75; probMax = 0.80;
+            break;
     }
-    
-    // Construct the user prompt using the configuration
-    const userPrompt = `
-    Based on the following configuration and market data, generate a high-value betting ticket.
-    Current Capital: ${config.currentCapital}
-    Target Match Count: ${config.matchCount}
-    Selected Markets: ${JSON.stringify(config.selectedMarkets)}
 
-    Provide your analysis and selection strictly in the required JSON format:
+    const legs: MatchLeg[] = [];
+    let totalOdds = 1.0;
     
-    interface Ticket {
-      analysis: string; // The ruthless, data-driven reasoning for the selection. Must be concise.
-      matches: {
-        id: number; // Unique match identifier (1 to matchCount)
-        market: string; // The market selected (e.g., '1X2', 'Over/Under 2.5')
-        selection: string; // The specific outcome (e.g., 'Home Win', 'Over 2.5 Goals')
-        odds: number; // The current odds for the selection (e.g., 1.95)
-      }[];
-      stake: number; // The determined stake amount based on your capital and perceived edge.
-      estimatedReturn: number; // stake * (1 + (average odds - 1))
-      status: 'PENDING'; // Always 'PENDING' upon creation
+    for (let i = 0; i < legsCount; i++) {
+        const odds = parseFloat((Math.random() * (oddsMax - oddsMin) + oddsMin).toFixed(2));
+        const confidence = parseFloat((Math.random() * (0.99 - 0.75) + 0.75).toFixed(2));
+        totalOdds *= odds;
+        legs.push({
+            id: `L-${Date.now()}-${i}`,
+            sport: `Football - Obscure League ${i+1}`,
+            fixture: `Minnows FC vs Outliers Utd (Tier ${Math.floor(Math.random() * 5) + 3})`,
+            market: isLive ? "Next Goal (In-Play)" : (mode === AppMode.BetBuilder ? "Over 7.5 Corners & Team To Score" : "Match Result: Home Win"),
+            odds: odds,
+            confidence: confidence,
+            isLive: isLive,
+        });
     }
-    `;
 
-    const payload: GenerateContentParameters = {
-        model: modelName,
-        contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-        config: {
-            systemInstruction: systemInstruction,
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: "OBJECT",
-                properties: {
-                    analysis: { type: "STRING" },
-                    matches: {
-                        type: "ARRAY",
-                        items: {
-                            type: "OBJECT",
-                            properties: {
-                                id: { type: "NUMBER" },
-                                market: { type: "STRING" },
-                                selection: { type: "STRING" },
-                                odds: { type: "NUMBER" },
-                            }
-                        }
-                    },
-                    stake: { type: "NUMBER" },
-                    estimatedReturn: { type: "NUMBER" },
-                    status: { type: "STRING" }
-                },
-                required: ["analysis", "matches", "stake", "estimatedReturn", "status"]
-            }
-        },
-        tools: [{ "google_search": {} }]
+    // Clamp totalOdds to the required range (5.0 to 10.0)
+    totalOdds = parseFloat(Math.min(Math.max(totalOdds, 5.0), 10.0).toFixed(2));
+
+    const winProbability = parseFloat((Math.random() * (probMax - probMin) + probMin).toFixed(2));
+
+    return {
+        id: `T-${Date.now()}-${strategy.replace(/\s/g, '')}`,
+        strategy,
+        mode,
+        totalOdds,
+        winProbability,
+        analysisReasoning: `[${strategy} Protocol] Mathematical edge confirmed. Statistical model predicts an undervaluation in the ${legs[0].sport} market. Zero emotional bias factored in. Niche knowledge dictates a high-probability outcome despite public perception. Payout is calculated for aggressive compound strategy.`,
+        legs,
+        timestamp: Date.now(),
     };
+};
 
-    try {
-        const response: GenerateContentResponse = await ai.models.generateContent(payload);
-
-        // The response text is a JSON string adhering to the schema
-        const jsonText = response.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!jsonText) {
-            throw new Error("AI did not return a valid JSON response.");
+// --- Main Service Function ---
+export const generateTickets = async (mode: AppMode, riskLevel?: RiskLevel): Promise<Ticket[]> => {
+    
+    // --- Phase 1: Construct User Prompt ---
+    // (This part is crucial for the real AI, but for mock, it just sets up the output structure)
+    // let prompt = `Generate a prediction output based on the provided system prompt.`;
+    
+    if (mode === AppMode.Accumulator) {
+        // Accumulator Mode: Produce 3 tickets for all 3 risk levels (9 total)
+        const allStrategies: RiskLevel[] = [RiskLevel.IronBank, RiskLevel.BookieBasher, RiskLevel.HighYieldAssassin];
+        
+        // --- PHASE 2: Mock AI Generation ---
+        const mockTickets: Ticket[] = [];
+        allStrategies.forEach(strategy => {
+            // "Each of the 3 risk protocols should produce multiples of 3 results each from each scan"
+            for (let i = 0; i < 3; i++) {
+                mockTickets.push(generateMockTicket(strategy, mode));
+            }
+        });
+        
+        return new Promise(resolve => setTimeout(() => resolve(mockTickets), 1500));
+        
+    } else {
+        // Live Scanner or Bet Builder Mode: Use the specified risk level
+        if (!riskLevel) {
+            throw new Error("Risk Level must be specified for non-Accumulator modes.");
         }
-
-        // Parse and return the structured Ticket object
-        return JSON.parse(jsonText) as Ticket;
-
-    } catch (error) {
-        console.error("Error generating content:", error);
-        // Throw a specific error based on the API response if possible
-        throw new Error("Failed to execute Warlord Protocol: Network or API Error.");
+        
+        // --- PHASE 2: Mock AI Generation (3 tickets for the single selected risk level) ---
+        const mockTickets: Ticket[] = [];
+        for (let i = 0; i < 3; i++) {
+            mockTickets.push(generateMockTicket(riskLevel, mode));
+        }
+        
+        return new Promise(resolve => setTimeout(() => resolve(mockTickets), 1500));
     }
-}
 
-// --- Conversational Chat Function ---
+    // --- REAL GEMINI API CALL (To be implemented in a Vercel Serverless Function) ---
+    /*
+    
+    // ... logic for calling Vercel API endpoint (/api/generate) ...
 
-/**
- * Initializes a chat session with the Warlord Protocol.
- * @returns A Chat session object.
- */
-export function startChat(): Chat {
-    // If the key is missing, this will fail during the first API call, 
-    // but the object can still be initialized here.
-    const chat = ai.chats.create({
-        model: modelName,
-        config: {
-            systemInstruction: systemInstruction,
-        }
-    });
-    return chat;
-}
+    */
+};
