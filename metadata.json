@@ -1,5 +1,18 @@
 {
-  "name": "Copy of Copy of KingBayo Money Empire",
-  "description": "High-tech, AI-powered sports analytics tool using Gemini 2.5 Flash for high-probability market analysis.",
-  "requestFramePermissions": []
+  "app_name": "KingBayo Money Empire",
+  "short_name": "KBE",
+  "description": "AI-Powered Sports Analytics: Ruthless Analysis Protocol.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#16a34a",
+  "icons": [
+    {
+      "src": "crown-money.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ],
+  "owner": "AariNAT Company Limited",
+  "version": "1.0.0"
 }
