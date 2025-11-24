@@ -1,30 +1,15 @@
-
 <!DOCTYPE html>
 <html lang="en" class="h-full dark">
 <head>
     <meta charset="UTF-8">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👑💰</text></svg>" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KingBayo Money Empire - Ruthless Analysis Protocol</title>
-
+    
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="KBE">
     <link rel="manifest" href="./metadata.json">
-    
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👑💰</text></svg>" />
 
-    <script type="importmap">
-        {
-          "imports": {
-            "react": "https://esm.sh/react@19?dev",
-            "react-dom/client": "https://esm.sh/react-dom@19/client?dev",
-            "lucide-react": "https://esm.sh/lucide-react@0.364.0",
-            "recharts": "https://esm.sh/recharts@2.12.5"
-          }
-        }
-    </script>
-    
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -32,35 +17,31 @@
             theme: {
                 extend: {
                     colors: {
-                        'neon-emerald': '#10b981', // Emerald 500
-                        'neon-amber': '#f59e0b',   // Amber 500
-                        'neon-red': '#ef4444',     // Red 500
-                        'slate-950': '#0b1120'     // Deepest Slate
+                        'neon-emerald': '#10b981',
+                        'neon-amber': '#f59e0b',
+                        'neon-red': '#ef4444',
+                        'slate-950': '#0b1120'
                     },
                 }
             }
         }
     </script>
-
     <style>
-        /* Base Vibe: Deep slate background, font-mono for technical feel */
         body {
-            background-color: #0f172a; /* bg-slate-900 */
-            color: #e2e8f0; /* slate-200 */
+            background-color: #0f172a;
+            color: #e2e8f0;
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
         }
-
-        /* Glassmorphism Effect for Header */
         .glass-header {
             backdrop-filter: blur(8px);
             -webkit-backdrop-filter: blur(8px);
-            background-color: rgba(30, 41, 59, 0.6); /* slate-800 with transparency */
-            border-bottom: 1px solid rgba(71, 85, 105, 0.3); /* slate-600 with transparency */
+            background-color: rgba(30, 41, 59, 0.6);
+            border-bottom: 1px solid rgba(71, 85, 105, 0.3);
         }
     </style>
 </head>
 <body class="h-full antialiased transition-colors duration-500">
     <div id="root" class="min-h-full"></div>
-    <script type="module" src="./index.tsx"></script>
+    <script type="module" src="/src/main.tsx"></script> 
 </body>
 </html>
