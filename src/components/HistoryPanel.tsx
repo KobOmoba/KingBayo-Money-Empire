@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { GeneratedTicket, MatchLeg } from '../types';
 import { History, Download, Trash2, Maximize2 } from 'lucide-react';
@@ -5,7 +6,7 @@ import { History, Download, Trash2, Maximize2 } from 'lucide-react';
 interface HistoryPanelProps {
     history: GeneratedTicket[];
     onLoad: (ticket: GeneratedTicket) => void;
-    // CRITICAL FIX: Prop name is 'onClear' (not 'clearHistory')
+    // Interface definition matches the prop used in App.tsx
     onClear: () => void; 
 }
 
@@ -34,12 +35,11 @@ const exportToCsv = (history: GeneratedTicket[]) => {
     ].map(quoteString).join(',');
 
     const rows = history.flatMap(ticket => {
-        // Ensure all numeric types are formatted explicitly
         const totalOdds = ticket.totalOdds.toFixed(2);
         const mathEdge = ticket.mathematicalEdge.toFixed(1);
 
         return ticket.legs.map((leg: MatchLeg) => {
-            const rowData: (string | number)[] = [ // Explicit type definition for safety
+            const rowData: (string | number)[] = [
                 new Date(ticket.timestamp).toISOString(),
                 ticket.strategyName,
                 totalOdds,
@@ -53,7 +53,6 @@ const exportToCsv = (history: GeneratedTicket[]) => {
                 leg.reasoning
             ];
             
-            // Map the row data and apply quoting to every field
             return rowData.map(quoteString).join(',');
         });
     });
@@ -71,7 +70,7 @@ const exportToCsv = (history: GeneratedTicket[]) => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    URL.revokeObjectURL(url); // Clean up the created URL
+    URL.revokeObjectURL(url);
 };
 
 
@@ -106,7 +105,6 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({ history, onLoad, onClear })
                 {history.length === 0 ? (
                     <p className="text-slate-500 italic text-center py-4">No tactical history recorded. Initiate first strike.</p>
                 ) : (
-                    // Display history items in reverse chronological order
                     [...history].reverse().map((ticket) => (
                         <div 
                             key={ticket.timestamp} 
